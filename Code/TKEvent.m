@@ -21,7 +21,7 @@
 #import "TKEvent.h"
 #import "TKState.h"
 
-static NSString *TKDescribeSourceStates(NSArray *states)
+static NSString *TKDescribeStates(NSArray *states)
 {
     if (! [states count]) return @"any state";
     
@@ -37,8 +37,8 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 
 @interface TKEvent ()
 @property (nonatomic, copy, readwrite) NSString *name;
-@property (nonatomic, copy, readwrite) NSArray *sourceStates;
-@property (nonatomic, strong, readwrite) TKState *destinationState;
+/** Maps destination state (key) to source states (value). */
+@property (nonatomic, copy, readwrite) NSDictionary *destinationToSourceMap;
 @property (nonatomic, copy) BOOL (^shouldFireEventBlock)(TKEvent *, TKTransition *);
 @property (nonatomic, copy) void (^willFireEventBlock)(TKEvent *, TKTransition *);
 @property (nonatomic, copy) void (^didFireEventBlock)(TKEvent *, TKTransition *);
@@ -52,14 +52,92 @@ static NSString *TKDescribeSourceStates(NSArray *states)
     if (!destinationState) [NSException raise:NSInvalidArgumentException format:@"The destination state cannot be nil."];
     TKEvent *event = [self new];
     event.name = name;
-    event.sourceStates = sourceStates;
-    event.destinationState = destinationState;
+    [event addTransitionFromStates:sourceStates toState:destinationState];
     return event;
+}
+
+- (void)addTransitionFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState
+{
+    if (!destinationState) [NSException raise:NSInvalidArgumentException format:@"The destination state cannot be nil."];
+
+    // make sure the source -> destination transition is not yet added
+    if ([self.destinationStates containsObject:destinationState])
+    {
+        NSArray *existingSourceStates = [self.destinationToSourceMap objectForKey:destinationState];
+        for (TKState *state in sourceStates)
+        {
+            if ([existingSourceStates containsObject:state]) [NSException raise:NSInvalidArgumentException format:@"The transition %@ -> %@ is already defined for event %@.", state.name, destinationState.name, self.name];
+        }
+    }
+
+    // make sure the source states are disjunct with the already defined source states
+    for (TKState *state in sourceStates)
+    {
+        if (! [state isKindOfClass:[TKState class]])  [NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [state class], state];
+        for (TKState *srcState in self.sourceStates)
+        {
+            if ([srcState.name isEqualToString:state.name]) [NSException raise:NSInvalidArgumentException format:@"A source state named `%@` is already registered for the event %@", state.name, self.name];
+        }
+    }
+
+    NSMutableDictionary *intermediateMap = [NSMutableDictionary dictionaryWithDictionary:self.destinationToSourceMap];
+    if (!sourceStates)
+    {
+        if ([self.sourceStates containsObject:[NSNull null]]) [NSException raise:NSInvalidArgumentException format:@"There is already an unconditional source state (nil) registered for event %@", self.name];
+        [intermediateMap setObject:[NSNull null] forKey:destinationState];
+    }
+    else
+    {
+        // if the destination state exists, add sources to the existing destination
+        NSArray *existingSourceStates = [intermediateMap objectForKey:destinationState];
+        NSMutableArray *joinedSourceStates = [NSMutableArray arrayWithArray:existingSourceStates];
+        [joinedSourceStates addObjectsFromArray:sourceStates];
+        [intermediateMap setObject:[NSArray arrayWithArray:joinedSourceStates] forKey:destinationState];
+    }
+    self.destinationToSourceMap = intermediateMap;
+}
+
+- (NSArray *)sourceStates
+{
+    NSMutableArray *sourceStates = [[NSMutableArray alloc] init];
+    for (TKState *state in self.destinationStates)
+    {
+        NSArray *states = [self.destinationToSourceMap objectForKey:state];
+        if ([[NSNull null] isEqual: states])
+        {
+            [sourceStates addObject:[NSNull null]];
+        }
+        else
+        {
+            [sourceStates addObjectsFromArray:states];
+        }
+    }
+    if (1 == sourceStates.count && [[NSNull null] isEqual:sourceStates.firstObject]) return nil;
+    return [NSArray arrayWithArray:sourceStates];
+}
+
+- (NSArray *)destinationStates
+{
+    return [self.destinationToSourceMap allKeys];
+}
+
+- (TKState *)destinationStateForSourceState:(TKState *)sourceState
+{
+    __block TKState *destinationState = nil;
+    [self.destinationToSourceMap enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        NSArray *sourceStates = (NSArray *) obj;
+        if ([sourceStates containsObject:sourceState])
+        {
+            destinationState = (TKState *)key;
+            *stop = YES;
+        }
+    }];
+    return destinationState;
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@:%p '%@' transitions from %@ to '%@'>", NSStringFromClass([self class]), self, self.name, TKDescribeSourceStates(self.sourceStates), self.destinationState.name];
+    return [NSString stringWithFormat:@"<%@:%p '%@' transitions from %@ to %@>", NSStringFromClass([self class]), self, self.name, TKDescribeStates(self.sourceStates), TKDescribeStates(self.destinationStates)];
 }
 
 #pragma mark - NSCoding
@@ -72,16 +150,17 @@ static NSString *TKDescribeSourceStates(NSArray *states)
     }
     
     self.name = [aDecoder decodeObjectForKey:@"name"];
-    self.sourceStates = [aDecoder decodeObjectForKey:@"sourceStates"];
-    self.destinationState = [aDecoder decodeObjectForKey:@"destinationState"];
+    NSData *encodedDictData = [aDecoder decodeObjectForKey:@"destinationToSourceMapData"];
+    self.destinationToSourceMap = [NSKeyedUnarchiver unarchiveObjectWithData:encodedDictData];
     return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)aCoder
 {
     [aCoder encodeObject:self.name forKey:@"name"];
-    [aCoder encodeObject:self.sourceStates forKey:@"sourceStates"];
-    [aCoder encodeObject:self.destinationState forKey:@"destinationState"];
+
+    NSData *encodedDictData = [NSKeyedArchiver archivedDataWithRootObject:self.destinationToSourceMap];
+    [aCoder encodeObject:encodedDictData forKey:@"destinationToSourceMapData"];
 }
 
 #pragma mark - NSCopying
@@ -90,8 +169,7 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 {
     TKEvent *copiedEvent = [[[self class] allocWithZone:zone] init];
     copiedEvent.name = self.name;
-    copiedEvent.sourceStates = self.sourceStates;
-    copiedEvent.destinationState = self.destinationState;
+    copiedEvent.destinationToSourceMap = self.destinationToSourceMap;
     copiedEvent.shouldFireEventBlock = self.shouldFireEventBlock;
     copiedEvent.willFireEventBlock = self.willFireEventBlock;
     copiedEvent.didFireEventBlock = self.didFireEventBlock;
