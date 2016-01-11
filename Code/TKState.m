@@ -45,6 +45,27 @@
     return [self stateWithName:name userInfo:nil];
 }
 
+- (NSUInteger)hash
+{
+    return [self.name hash] ^ [self.userInfo hash];
+}
+
+- (BOOL)isEqual:(id)other
+{
+    if (![other isMemberOfClass:[self class]]) return NO;
+    TKState* otherState = (TKState*) other;
+    BOOL userInfoEquals = NO;
+    if (otherState.userInfo && self.userInfo)
+    {
+        userInfoEquals = [otherState.userInfo isEqualToDictionary:self.userInfo];
+    }
+    else
+    {
+        userInfoEquals = (!otherState.userInfo && !self.userInfo);
+    }
+    return [otherState.name isEqualToString:self.name] && userInfoEquals;
+}
+
 - (NSString *)description
 {
     return [NSString stringWithFormat:@"<%@:%p '%@'>", NSStringFromClass([self class]), self, self.name];
@@ -56,6 +77,7 @@
 {
     TKState *copiedState = [[[self class] allocWithZone:zone] init];
     copiedState.name = self.name;
+    copiedState.userInfo = self.userInfo;
     copiedState.willEnterStateBlock = self.willEnterStateBlock;
     copiedState.didEnterStateBlock = self.didEnterStateBlock;
     copiedState.willExitStateBlock = self.willExitStateBlock;
