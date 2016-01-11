@@ -77,6 +77,7 @@
 {
     TKState *copiedState = [[[self class] allocWithZone:zone] init];
     copiedState.name = self.name;
+    copiedState.userInfo = self.userInfo;
     copiedState.willEnterStateBlock = self.willEnterStateBlock;
     copiedState.didEnterStateBlock = self.didEnterStateBlock;
     copiedState.willExitStateBlock = self.willExitStateBlock;
