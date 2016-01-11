@@ -60,23 +60,26 @@ static NSString *TKDescribeStates(NSArray *states)
 {
     if (!destinationState) [NSException raise:NSInvalidArgumentException format:@"The destination state cannot be nil."];
 
+    // make sure the source states are disjunct with the already defined source states
+    for (TKState *state in sourceStates)
+    {
+        if (! [state isKindOfClass:[TKState class]])  [NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [state class], state];
+        for (TKState *sourceState in self.sourceStates)
+        {
+            if ([sourceState.name isEqualToString:state.name]) [NSException raise:NSInvalidArgumentException format:@"A source state named `%@` is already registered for the event %@", state.name, self.name];
+        }
+    }
+
     // make sure the source -> destination transition is not yet added
     if ([self.destinationStates containsObject:destinationState])
     {
         NSArray *existingSourceStates = [self.destinationToSourceMap objectForKey:destinationState];
         for (TKState *state in sourceStates)
         {
-            if ([existingSourceStates containsObject:state]) [NSException raise:NSInvalidArgumentException format:@"The transition %@ -> %@ is already defined for event %@.", state.name, destinationState.name, self.name];
-        }
-    }
-
-    // make sure the source states are disjunct with the already defined source states
-    for (TKState *state in sourceStates)
-    {
-        if (! [state isKindOfClass:[TKState class]])  [NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [state class], state];
-        for (TKState *srcState in self.sourceStates)
-        {
-            if ([srcState.name isEqualToString:state.name]) [NSException raise:NSInvalidArgumentException format:@"A source state named `%@` is already registered for the event %@", state.name, self.name];
+            if ([existingSourceStates containsObject:state])
+            {
+                [NSException raise:NSInvalidArgumentException format:@"A transition from state `%@` to `%@` is already registered for the event %@", state.name, destinationState.name, self.name];    
+            }
         }
     }
 
