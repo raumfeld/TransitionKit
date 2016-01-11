@@ -298,14 +298,20 @@ static NSString *TKQuoteString(NSString *string)
         [copiedStateMachine addState:[state copy]];
     }
     
-    for (TKEvent *event in self.events) {
+    for (TKEvent *event in self.events)
+	{
+#warning fix me
+		/*
         NSMutableArray *sourceStates = [NSMutableArray arrayWithCapacity:[event.sourceStates count]];
-        for (TKState *sourceState in event.sourceStates) {
+		
+        for (TKState *sourceState in event.sourceStates)
+		{
             [sourceStates addObject:[copiedStateMachine stateNamed:sourceState.name]];
         }
         TKState *destinationState = [copiedStateMachine stateNamed:event.destinationState.name];
         TKEvent *copiedEvent = [TKEvent eventWithName:event.name transitioningFromStates:sourceStates toState:destinationState];
         [copiedStateMachine addEvent:copiedEvent];
+		 */
     }
     return copiedStateMachine;
 }
