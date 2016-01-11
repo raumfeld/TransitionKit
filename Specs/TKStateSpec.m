@@ -41,4 +41,26 @@ describe(@"stateWithName:entryBlock:exitBlock:", ^{
     });
 });
 
+describe(@"isEqual:", ^{
+    __block TKState *stateA = [TKState stateWithName:@"StateA" userInfo:@{@"A": @1, @"B": @2}];
+    __block TKState *stateB = [TKState stateWithName:@"StateA" userInfo:@{@"A": @1, @"B": @2}];
+    __block TKState *stateC = [TKState stateWithName:@"StateA" userInfo:@{@"X": @1, @"Y": @2}];
+    __block TKState *stateD = [TKState stateWithName:@"StateC" userInfo:nil];
+    __block TKState *stateE = [TKState stateWithName:@"StateA" userInfo:nil];
+    
+    context(@"when compared to itself", ^{
+        it(@"returns YES", ^{
+            [[theValue([stateA isEqual:stateB]) should] equal:theValue(YES)];
+        });
+    });
+    
+    context(@"when compared to another state", ^{
+        it(@"returns NO", ^{
+            [[theValue([stateA isEqual:stateE]) should] equal:theValue(NO)];
+            [[theValue([stateB isEqual:stateC]) should] equal:theValue(NO)];
+            [[theValue([stateB isEqual:stateD]) should] equal:theValue(NO)];
+        });
+    });
+});
+
 SPEC_END
