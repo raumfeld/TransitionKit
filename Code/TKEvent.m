@@ -21,7 +21,7 @@
 #import "TKEvent.h"
 #import "TKState.h"
 
-static NSString *TKDescribeSourceStates(NSArray *states)
+static NSString *TKDescribeStates(NSArray *states)
 {
     if (! [states count]) return @"any state";
     
@@ -37,8 +37,13 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 
 @interface TKEvent ()
 @property (nonatomic, copy, readwrite) NSString *name;
-@property (nonatomic, copy, readwrite) NSArray *sourceStates;
-@property (nonatomic, strong, readwrite) TKState *destinationState;
+
+/** An array of arrays, each containning two values: [0] -> source state name, [1] -> destination state name. */
+@property (nonatomic, readwrite) NSArray *sourceToDestinationNameMap;
+
+@property (nonatomic) NSMutableArray *mutableSourceStates;
+@property (nonatomic) NSMutableArray *mutableDestinationStates;
+
 @property (nonatomic, copy) BOOL (^shouldFireEventBlock)(TKEvent *, TKTransition *);
 @property (nonatomic, copy) void (^willFireEventBlock)(TKEvent *, TKTransition *);
 @property (nonatomic, copy) void (^didFireEventBlock)(TKEvent *, TKTransition *);
@@ -46,20 +51,156 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 
 @implementation TKEvent
 
+#pragma mark - Creating an Event
+
++(instancetype)eventWithName:(NSString *)inName
+{
+	TKEvent *event = [self new];
+	
+	event.name = inName;
+	
+	return event;
+}
+
 + (instancetype)eventWithName:(NSString *)name transitioningFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState
 {
     if (! [name length]) [NSException raise:NSInvalidArgumentException format:@"The event name cannot be blank."];
     if (!destinationState) [NSException raise:NSInvalidArgumentException format:@"The destination state cannot be nil."];
     TKEvent *event = [self new];
     event.name = name;
-    event.sourceStates = sourceStates;
-    event.destinationState = destinationState;
+    [event addTransitionFromStates:sourceStates toState:destinationState];
     return event;
 }
 
+- (instancetype) init
+{
+    self = [super init];
+    {
+        _mutableSourceStates = [[NSMutableArray alloc] init];
+        _mutableDestinationStates = [[NSMutableArray alloc] init];
+        _sourceToDestinationNameMap = [[NSArray alloc] init];
+    }
+    return self;
+}
+
+- (void)addTransitionFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState
+{
+    NSParameterAssert(destinationState);
+    
+    if (sourceStates == nil)
+    {
+        sourceStates = @[[TKState anyState]];
+    }
+    
+    // make sure the source states are disjunct with the already defined source states
+    for (TKState *sourceState in sourceStates)
+    {
+        if (! [sourceState isKindOfClass:[TKState class]])
+        {
+            [NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [sourceState class], sourceState];
+        }
+        
+        // make sure the source -> destination transition is not yet added
+        if ((nil != [self sourceStateWithName:sourceState.name]) && (nil != [self destinationStateWithName:destinationState.name]))
+        {
+            [NSException raise:NSInvalidArgumentException format:@"A source state named %@ is already registered for the event %@", sourceState.name, self.name];
+        }
+        if (YES == [self hasTransitionFromState:sourceState.name toState:destinationState.name])
+        {
+            [NSException raise:NSInvalidArgumentException format:@"A transition from state `%@` to `%@` is already registered for the event %@", sourceState.name, destinationState.name, self.name];
+        }
+
+        self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[sourceState.name, destinationState.name]];
+        if (nil == [self sourceStateWithName:sourceState.name])
+        {
+            [self.mutableSourceStates addObject:sourceState];
+        }
+        if (nil == [self destinationStateWithName:destinationState.name])
+        {
+            [self.mutableDestinationStates addObject:destinationState];
+        }
+    }
+}
+
+#pragma mark - Accessing Event Details
+
+- (NSArray*) sourceStates
+{
+    return self.mutableSourceStates.copy;
+}
+
+- (NSArray*) destinationStates
+{
+    return self.mutableDestinationStates.copy;
+}
+
+- (TKState *)destinationStateForSourceState:(TKState *)sourceState
+{
+    for (NSArray *statePair in self.sourceToDestinationNameMap)
+    {
+        if ([statePair[0] isEqualToString:sourceState.name])
+        {
+            return [self destinationStateWithName:statePair[1]];
+        }
+    }
+    return nil;
+}
+
+- (NSArray*) sourceStatesForDestinationState:(TKState*) inDestinationState
+{
+    NSMutableArray *sourceStates = [NSMutableArray array];
+    
+    for (NSArray *statePair in self.sourceToDestinationNameMap)
+    {
+        if ([statePair[1] isEqualToString:inDestinationState.name])
+        {
+            [sourceStates addObject:[self sourceStateWithName:statePair[0]]];
+        }
+    }
+    return sourceStates.copy;
+}
+
+#pragma mark - Private accessors
+
+- (TKState*) sourceStateWithName:(NSString*) inStateName
+{
+    return [self stateWithName:inStateName inStates:self.sourceStates];
+}
+
+- (TKState*) destinationStateWithName:(NSString*) inStateName
+{
+    return [self stateWithName:inStateName inStates:self.destinationStates];
+}
+
+- (TKState *) stateWithName:(NSString *)inStateName inStates:(NSArray *)inStates
+{
+    for (TKState *state in inStates)
+    {
+        if ([state.name isEqualToString:inStateName])
+        {
+            return state;
+        }
+    }
+    return nil;
+}
+
+- (BOOL) hasTransitionFromState:(NSString*) inSourceStateName toState:(NSString*) inDestinationStateName
+{
+	NSParameterAssert(inDestinationStateName);
+	
+	if (inSourceStateName == nil)
+	{
+		inSourceStateName = [TKState anyState].name;
+	}
+	
+	return [self.sourceToDestinationNameMap containsObject:@[inSourceStateName, inDestinationStateName]];
+}
+
+#pragma mark - NSObject
+
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@:%p '%@' transitions from %@ to '%@'>", NSStringFromClass([self class]), self, self.name, TKDescribeSourceStates(self.sourceStates), self.destinationState.name];
+    return [NSString stringWithFormat:@"<%@:%p '%@' transitions from %@ to %@>", NSStringFromClass([self class]), self, self.name, TKDescribeStates(self.sourceStates), TKDescribeStates(self.destinationStates)];
 }
 
 #pragma mark - NSCoding
@@ -67,21 +208,22 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 - (id)initWithCoder:(NSCoder *)aDecoder
 {
     self = [self init];
-    if (!self) {
-        return nil;
+    if (self)
+	{
+		self.name = [aDecoder decodeObjectForKey:@"name"];
+		self.sourceToDestinationNameMap = [aDecoder decodeObjectForKey:@"sourceToDestinationNameMap"];
+		self.mutableSourceStates = [[aDecoder decodeObjectForKey:@"sourceStates"] mutableCopy];
+		self.mutableDestinationStates = [[aDecoder decodeObjectForKey:@"destinationStates"] mutableCopy];
     }
-    
-    self.name = [aDecoder decodeObjectForKey:@"name"];
-    self.sourceStates = [aDecoder decodeObjectForKey:@"sourceStates"];
-    self.destinationState = [aDecoder decodeObjectForKey:@"destinationState"];
     return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)aCoder
 {
     [aCoder encodeObject:self.name forKey:@"name"];
-    [aCoder encodeObject:self.sourceStates forKey:@"sourceStates"];
-    [aCoder encodeObject:self.destinationState forKey:@"destinationState"];
+	[aCoder encodeObject:self.sourceToDestinationNameMap forKey:@"sourceToDestinationNameMap"];
+	[aCoder encodeObject:self.mutableSourceStates forKey:@"sourceStates"];
+	[aCoder encodeObject:self.mutableDestinationStates forKey:@"destinationStates"];
 }
 
 #pragma mark - NSCopying
@@ -90,8 +232,9 @@ static NSString *TKDescribeSourceStates(NSArray *states)
 {
     TKEvent *copiedEvent = [[[self class] allocWithZone:zone] init];
     copiedEvent.name = self.name;
-    copiedEvent.sourceStates = self.sourceStates;
-    copiedEvent.destinationState = self.destinationState;
+    copiedEvent.sourceToDestinationNameMap = self.sourceToDestinationNameMap;
+	copiedEvent.mutableSourceStates = self.mutableSourceStates.mutableCopy;
+	copiedEvent.mutableDestinationStates = self.mutableDestinationStates.mutableCopy;
     copiedEvent.shouldFireEventBlock = self.shouldFireEventBlock;
     copiedEvent.willFireEventBlock = self.willFireEventBlock;
     copiedEvent.didFireEventBlock = self.didFireEventBlock;
