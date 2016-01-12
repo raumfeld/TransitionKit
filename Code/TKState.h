@@ -48,6 +48,14 @@
  */
 + (instancetype)stateWithName:(NSString *)name;
 
+/** 
+ 
+ Returns a static 'any state' instance, which can be use as a wildcard placeholder for an event's source state.
+ 
+ @return A static instance. */
++ (TKState*) anyState;
+
+
 ///------------------------------------
 /// @name Accessing the Name of a State
 ///------------------------------------

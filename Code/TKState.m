@@ -31,6 +31,16 @@
 
 @implementation TKState
 
++ (TKState*) anyState
+{
+	static TKState *anyState;	
+	if (nil == anyState)
+	{
+		anyState = [TKState stateWithName:@"Any State"];
+	}
+	return anyState;
+}
+
 + (instancetype)stateWithName:(NSString *)name userInfo:(NSDictionary *)userInfo
 {
     if (! [name length]) [NSException raise:NSInvalidArgumentException format:@"The `name` cannot be blank."];
