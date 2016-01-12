@@ -166,8 +166,11 @@ context(@"when a state machine is copied", ^{
     
     it(@"copies all states", ^{
         [[copiedStateMachine.states should] haveCountOf:2];
-        [[copiedStateMachine.states shouldNot] contain:firstState];
-        [[copiedStateMachine.states shouldNot] contain:secondState];
+        [[copiedStateMachine.states should] contain:firstState];
+        [[copiedStateMachine.states should] contain:secondState];
+    
+        [[[copiedStateMachine stateNamed:firstState.name]  shouldNot] beIdenticalTo:firstState];
+        [[[copiedStateMachine stateNamed:secondState.name] shouldNot] beIdenticalTo:secondState];
     });
     
     it(@"copies all events", ^{
