@@ -138,7 +138,7 @@ static NSString *TKDescribeStates(NSArray *states)
 			[NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [sourceState class], sourceState];
 		}
 		
-		if (nil != [self sourceStateWithName:sourceState.name])
+		if ((nil != [self sourceStateWithName:sourceState.name]) && (nil != [self destinationStateWithName:destinationState.name]))
 		{
 			[NSException raise:NSInvalidArgumentException format:@"A source state named %@ is already registered for the event %@", sourceState.name, self.name];
 		}
@@ -148,7 +148,10 @@ static NSString *TKDescribeStates(NSArray *states)
 			[NSException raise:NSInvalidArgumentException format:@"A transition from state `%@` to `%@` is already registered for the event %@", sourceState.name, destinationState.name, self.name];
 		}
 		self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[sourceState.name, destinationState.name]];
-		[self.mutableSourceStates addObject:sourceState];
+        if (nil == [self sourceStateWithName:sourceState.name])
+        {
+            [self.mutableSourceStates addObject:sourceState];
+        }
 		if (nil == [self destinationStateWithName:destinationState.name])
 		{
 			[self.mutableDestinationStates addObject:destinationState];
