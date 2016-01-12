@@ -233,7 +233,7 @@ static NSString *TKDescribeStates(NSArray *states)
 	{
 		if ([statePair[1] isEqualToString:inDestinationState.name])
 		{
-			[sourceStates addObject:statePair[0]];
+			[sourceStates addObject:[self sourceStateWithName:statePair[0]]];
 		}
 	}
 	return sourceStates.copy;
