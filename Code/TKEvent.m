@@ -113,7 +113,12 @@ static NSString *TKDescribeStates(NSArray *states)
 {
 	NSParameterAssert(inDestinationStateName);
 	
-	return [self.sourceToDestinationNameMap containsObject:@[inSourceStateName?:[NSNull null], inDestinationStateName]];
+	if (inSourceStateName == nil)
+	{
+		inSourceStateName = [TKState anyState].name;
+	}
+	
+	return [self.sourceToDestinationNameMap containsObject:@[inSourceStateName, inDestinationStateName]];
 }
 
 - (void)addTransitionFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState
@@ -122,42 +127,31 @@ static NSString *TKDescribeStates(NSArray *states)
 	
 	if (sourceStates == nil)
 	{
-		if ([self.mutableSourceStates containsObject:[NSNull null]])
+		sourceStates = @[[TKState anyState]];
+	}
+
+	// make sure the source states are disjunct with the already defined source states
+	for (TKState *sourceState in sourceStates)
+	{
+		if (! [sourceState isKindOfClass:[TKState class]])
 		{
-			[NSException raise:NSInvalidArgumentException format:@"There is already an unconditional source state (nil) registered for event %@", self.name];
+			[NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [sourceState class], sourceState];
 		}
-		self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[[NSNull null], destinationState.name]];
-        [self.mutableSourceStates addObject:[NSNull null]];
+		
+		if (nil != [self sourceStateWithName:sourceState.name])
+		{
+			[NSException raise:NSInvalidArgumentException format:@"A source state named %@ is already registered for the event %@", sourceState.name, self.name];
+		}
+		// make sure the source -> destination transition is not yet added
+		if (YES == [self hasTransitionFromState:sourceState.name toState:destinationState.name])
+		{
+			[NSException raise:NSInvalidArgumentException format:@"A transition from state `%@` to `%@` is already registered for the event %@", sourceState.name, destinationState.name, self.name];
+		}
+		self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[sourceState.name, destinationState.name]];
+		[self.mutableSourceStates addObject:sourceState];
 		if (nil == [self destinationStateWithName:destinationState.name])
 		{
 			[self.mutableDestinationStates addObject:destinationState];
-		}
-	}
-	else
-	{
-		// make sure the source states are disjunct with the already defined source states
-		for (TKState *sourceState in sourceStates)
-		{
-			if (! [sourceState isKindOfClass:[TKState class]])
-			{
-				[NSException raise:NSInvalidArgumentException format:@"Expected a `TKState` object, instead got a `%@` (%@)", [sourceState class], sourceState];
-			}
-			
-			if (nil != [self sourceStateWithName:sourceState.name])
-			{
-				[NSException raise:NSInvalidArgumentException format:@"A source state named `%@` is already registered for the event %@", sourceState.name, self.name];
-			}
-			// make sure the source -> destination transition is not yet added
-			if (YES == [self hasTransitionFromState:sourceState.name toState:destinationState.name])
-			{
-				 [NSException raise:NSInvalidArgumentException format:@"A transition from state `%@` to `%@` is already registered for the event %@", sourceState.name, destinationState.name, self.name];
-			}
-			self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[sourceState.name, destinationState.name]];
-			[self.mutableSourceStates addObject:sourceState];
-			if (nil == [self destinationStateWithName:destinationState.name])
-			{
-				[self.mutableDestinationStates addObject:destinationState];
-			}
 		}
 	}
 }
