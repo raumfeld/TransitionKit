@@ -42,6 +42,15 @@
 + (instancetype)eventWithName:(NSString *)name transitioningFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState;
 
 /**
+ Creates and returns a new event object with just given name.
+ 
+ @param name The name for the event.
+ @return A newly created event object.
+*/
+
++ (instancetype) eventWithName:(NSString *)inName;
+
+/**
  Adds further transitions for the same event. The new source states must be disjunct to existing source states for this
  event. However, it is possible call this method multiple times to add source states for the same destination state.
 
@@ -77,6 +86,11 @@
  @return the matching destination state for the given source state or `nil`
  */
 - (TKState *)destinationStateForSourceState:(TKState *)sourceState;
+
+#warning documentation?
+
+- (NSArray*) sourceStatesForDestinationState:(TKState*) inDestinationState;
+
 
 ///------------------------------
 /// @name Setting Callback Blocks
