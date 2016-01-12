@@ -57,6 +57,7 @@ static NSString *TKDescribeStates(NSArray *states)
 	{
 		_mutableSourceStates = [[NSMutableArray alloc] init];
 		_mutableDestinationStates = [[NSMutableArray alloc] init];
+        _sourceToDestinationNameMap = [[NSArray alloc] init];
 	}
 	return self;
 }
@@ -72,6 +73,16 @@ static NSString *TKDescribeStates(NSArray *states)
     [event addTransitionFromStates:sourceStates toState:destinationState];
 	
     return event;
+}
+
+- (NSArray*) sourceStates
+{
+    return self.mutableSourceStates.copy;
+}
+
+- (NSArray*) destinationStates
+{
+    return self.mutableDestinationStates.copy;
 }
 
 - (TKState*) sourceStateWithName:(NSString*) inStateName
@@ -111,11 +122,12 @@ static NSString *TKDescribeStates(NSArray *states)
 	
 	if (sourceStates == nil)
 	{
-		if (YES == [self hasTransitionFromState:nil toState:destinationState.name])
+		if ([self.mutableSourceStates containsObject:[NSNull null]])
 		{
-			[NSException raise:NSInvalidArgumentException format:@"A transition from state `nil` to `%@` is already registered for the event %@", destinationState.name, self.name];
+			[NSException raise:NSInvalidArgumentException format:@"There is already an unconditional source state (nil) registered for event %@", self.name];
 		}
 		self.sourceToDestinationNameMap = [self.sourceToDestinationNameMap arrayByAddingObject:@[[NSNull null], destinationState.name]];
+        [self.mutableSourceStates addObject:[NSNull null]];
 		if (nil == [self destinationStateWithName:destinationState.name])
 		{
 			[self.mutableDestinationStates addObject:destinationState];
@@ -205,16 +217,6 @@ static NSString *TKDescribeStates(NSArray *states)
     copiedEvent.didFireEventBlock = self.didFireEventBlock;
 	
     return copiedEvent;
-}
-
-- (NSArray*) sourceStates
-{
-	return self.mutableDestinationStates.copy;
-}
-
-- (NSArray*) destinationStates
-{
-	return self.mutableDestinationStates.copy;
 }
 
 @end
