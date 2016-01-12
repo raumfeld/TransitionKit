@@ -63,11 +63,18 @@ describe(@"addTransitionFromStates:toState:", ^{
             tkEvent = [TKEvent eventWithName:@"MultiEvent" transitioningFromStates:@[stateA, stateB] toState:stateZ];
         });
         
-        context(@"when an existing source state is added", ^{
+        context(@"when an existing source state with a new destination state is added", ^{
             it(@"raises an NSInvalidArgumentException", ^{
-                [[theBlock(^{
-                    [tkEvent addTransitionFromStates:@[stateB] toState:stateX];
-                }) should] raiseWithName:NSInvalidArgumentException reason:@"A source state named `B` is already registered for the event MultiEvent"];
+                [tkEvent addTransitionFromStates:@[stateB] toState:stateX];
+
+                [[tkEvent.sourceStates should] contain:stateA];
+                [[tkEvent.sourceStates should] contain:stateB];
+                [[[tkEvent.sourceStates should] have:2] items];
+                
+                [[tkEvent.destinationStates should] contain:stateX];
+                [[tkEvent.destinationStates should] contain:stateZ];
+                [[[tkEvent.destinationStates should] have:2] items];
+
             });
         });
         context(@"when an existing source and an existing destination state is added", ^{
