@@ -81,7 +81,7 @@ describe(@"addTransitionFromStates:toState:", ^{
             it(@"raises an NSInvalidArgumentException", ^{
                 [[theBlock(^{
                     [tkEvent addTransitionFromStates:@[stateB] toState:stateZ];
-                }) should] raiseWithName:NSInvalidArgumentException reason:@"A source state named `B` is already registered for the event MultiEvent"];
+                }) should] raiseWithName:NSInvalidArgumentException reason:@"A source state named B is already registered for the event MultiEvent"];
             });
         });
         context(@"when a new source state is added to an existing destination", ^{
@@ -126,7 +126,7 @@ describe(@"addTransitionFromStates:toState:", ^{
                 [tkEvent addTransitionFromStates:@[stateA] toState:stateX];
                 
                 [[tkEvent.sourceStates should] contain:stateA];
-                [[tkEvent.sourceStates should] contain:[NSNull null]];
+                [[tkEvent.sourceStates should] contain:[TKState anyState]];
                 [[[tkEvent.sourceStates should] have:2] items];
             });
         });
@@ -135,7 +135,7 @@ describe(@"addTransitionFromStates:toState:", ^{
             it(@"should fail", ^{
                 [[theBlock(^{
                     [tkEvent addTransitionFromStates:nil toState:stateX];
-                }) should] raiseWithName:NSInvalidArgumentException reason:@"There is already an unconditional source state (nil) registered for event UnconditionalEvent"];
+                }) should] raiseWithName:NSInvalidArgumentException reason:@"A source state named Any State is already registered for the event UnconditionalEvent"];
             });
         });
     });
