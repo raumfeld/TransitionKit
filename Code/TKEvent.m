@@ -62,6 +62,15 @@ static NSString *TKDescribeStates(NSArray *states)
 	return self;
 }
 
++(instancetype)eventWithName:(NSString *)inName
+{
+	TKEvent *event = [self new];
+	
+	event.name = inName;
+	
+	return event;
+}
+
 + (instancetype)eventWithName:(NSString *)name transitioningFromStates:(NSArray *)sourceStates toState:(TKState *)destinationState
 {
     if (! [name length]) [NSException raise:NSInvalidArgumentException format:@"The event name cannot be blank."];
@@ -214,6 +223,20 @@ static NSString *TKDescribeStates(NSArray *states)
     copiedEvent.didFireEventBlock = self.didFireEventBlock;
 	
     return copiedEvent;
+}
+
+- (NSArray*) sourceStatesForDestinationState:(TKState*) inDestinationState
+{
+	NSMutableArray *sourceStates = [NSMutableArray array];
+	
+	for (NSArray *statePair in self.sourceToDestinationNameMap)
+	{
+		if ([statePair[1] isEqualToString:inDestinationState.name])
+		{
+			[sourceStates addObject:statePair[0]];
+		}
+	}
+	return sourceStates.copy;
 }
 
 @end
