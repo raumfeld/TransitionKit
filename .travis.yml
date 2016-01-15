@@ -1,4 +1,2 @@
 language: objective-c
-before_install:
-    - gem install cocoapods
 script: bundle exec rake spec
